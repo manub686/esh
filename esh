@@ -1,0 +1,254 @@
+#!/usr/bin/env python
+
+import imp
+import sys
+import time
+import fileinput
+import optparse
+import ConfigParser
+from subprocess import Popen, PIPE
+import jsutil 
+import os
+import traceback
+#from cmds import *
+
+INP_PIPE = '/tmp/esh_inp'
+OUT_PIPE = '/tmp/esh_out'
+
+def pss():
+  print sys.argv[0]
+  #cmd="java org.mozilla.javascript.tools.shell.Main"
+  cmd="$DEBUGSERVER_ROOT/../../eclipse/eclipse -nosplash -application com.ti.ccstudio.apps.runScript -dss.rhinoArgs" 
+  #jsproc = Popen([cmd], stdout=PIPE, stdin=PIPE, stderr=PIPE, shell=True)
+  jsproc = Popen([cmd], stdin=PIPE, stderr=PIPE, shell=True)
+  #jsproc = Popen([cmd], stdin=PIPE, shell=True)
+
+  jsutil.fetch_jsprompt(jsproc)
+
+  return jsproc
+
+def pss_i(jsproc):
+  while True:
+    #print
+    line = raw_input('pss>')
+    #print 'input:'
+    #print line
+    jsproc.stdin.write(line + '\n')
+
+    jsutil.fetch_jsprompt(jsproc)
+
+    #time.sleep(1)
+    time.sleep(0.2)
+
+#def esh(jsproc, options):
+#  while True:
+#    cmdline = raw_input('esh$ ')
+#    bye = process_cmdline(cmdline, jsproc, options)
+#    if bye:
+#      break
+
+#def esh_daemon(jsproc, options, ip, op):
+def esh_daemon(jsproc, options):
+  #while True:
+  #  print 'reading input pipe'
+  #  cmdline = ip.readline()
+  #  #cmdline = ip.read()
+  #  print 'read input pipe'
+  #  bye = process_cmdline(cmdline, jsproc, options)
+  #  if bye:
+  #    break
+
+  #bye = False
+  #while True:
+  #  for cmdline in ip:
+  #    print 'read input pipe'
+  #    print 'cmdline:', cmdline
+  #    bye = process_cmdline(cmdline, jsproc, options)
+  #    if bye:
+  #      break
+  #  if bye:
+  #    break
+
+
+  while True:
+    sip = open(INP_PIPE, 'r')
+    sop = open(OUT_PIPE, 'w')
+    for cmdline in sip:
+      print cmdline
+      (bye, cmd, ret) = process_cmdline(cmdline, jsproc, options)
+      sop.write('cmd=%s,ret=%d\n' % (cmd, ret))
+      sop.flush()
+      if bye:
+        break
+
+    sip.close()
+    sop.close()
+    if bye:
+      break
+
+
+#CMDS = ['help', 'bye', 'progs']
+
+def process_cmdline(cmdline, jsproc, options):
+
+  bye = False
+  cmdline = [x.strip() for x in cmdline.split(' ')]
+  cmd = cmdline[0]
+
+  args = []
+  if len(cmdline) > 1:
+    args = cmdline[1:]
+
+  #import cmds
+  cmds = imp.load_source('cmds', 'cmds.py')
+  CMDS = [cmd_name.split('cmd_')[1] for cmd_name in dir(cmds) if cmd_name.startswith('cmd_')]
+  #print CMDS
+
+  if cmd == 'bye':
+    bye = True
+
+  if cmd not in CMDS:
+    cmd = 'help'
+
+  methodToCall = getattr(cmds, 'cmd_%s' % cmd)
+  try:
+    ret = methodToCall(jsproc, options, args)
+  except Exception, e:
+    ret = -1
+    traceback.print_exc()
+    
+
+  return (bye, cmd, ret)
+
+
+def esh_client(args):
+  cop = open(INP_PIPE, 'w')
+  cip = open(OUT_PIPE, 'r')
+
+  cop.write(' '.join(args) + '\n')
+  #cop.flush()
+  cop.close()
+
+  for line in cip:
+    print line
+  ret = int(line.split('ret=')[1])
+  #print 'retval=%d' % ret
+
+  cip.close()
+
+  return ret
+
+def esh_server(options):
+  jsproc = pss()
+
+  ##pss_i(jsproc)
+  #print 'Initiating evm startup'
+  #evm_startup(jsproc, options)
+  #print 'Finished evm startup'
+
+  if options.interactive:
+    print 'Dropping to esh...'
+    print
+    esh(jsproc, options)
+
+  else:
+    print 'Starting esh in daemon mode, put me in background'
+    print
+    setup_pipes()
+
+    #sip = open(INP_PIPE, 'r')
+    #sop = open(OUT_PIPE, 'w')
+
+    #sipf = os.fdopen(sip)
+    #sopf = os.fdopen(sop)
+
+    #if os.fork():
+    #  sys.exit()
+    ##esh_daemon(jsproc, options, sip, sop)
+    #esh_daemon(jsproc, options, sipf, sopf)
+    esh_daemon(jsproc, options)
+
+    #sip.close()
+    #sop.close()
+
+  #print 'Initiating evm shutdown'
+  #evm_shutdown(jsproc, options)
+  #print 'Finished evm shutdown'
+
+
+def setup_pipes():
+  try:
+    os.unlink(INP_PIPE)
+    os.unlink(OUT_PIPE)
+  #except OSError, IOError:
+  except Exception as e:
+    pass
+
+  #try:
+  os.mkfifo(INP_PIPE)
+  os.mkfifo(OUT_PIPE)
+  #except OSError:
+  #  pass
+
+def replace(options, c, sec, key, nv):
+    keys = c.options(sec)
+    if key in keys and getattr(options, key) == nv:
+      setattr(options, key,  c.get(sec, key))
+
+def main():
+  parser = optparse.OptionParser()
+  parser.add_option("-t", "--tcf", 
+      help="target configuration file", action="store")
+  parser.add_option("-p", "--prog",
+      help="program to load", action="store")
+  parser.add_option("-g", "--gui", default=False,
+      help="attach and launch CCS GUI", action="store_true")
+  parser.add_option("-C", "--cleanup", default=False,
+      help="cleanup debug sessions", action="store_true")
+  parser.add_option("-c", "--conf", 
+      help="configuration file (take precedence over cmd line args)", action="store")
+  parser.add_option("-i", "--interactive", default=False,
+      help="drop to interactive esh shell", action="store_true")
+  parser.add_option("-d", "--daemon", default=False,
+      help="run esh daemon", action="store_true")
+
+  (options, args) = parser.parse_args()
+  #print options
+  #print args
+
+  debugSessions = {}
+  if options.conf != None:
+    c = ConfigParser.ConfigParser()
+    c.optionxform = str	#to make option names case sensitive
+    c.read(options.conf)
+    sec = 'def'
+    replace(options, c, sec, 'tcf', None)
+    replace(options, c, sec, 'prog', None)
+    replace(options, c, sec, 'gui', False)
+    replace(options, c, sec, 'cleanup', False)
+
+    sec = 'debug'
+    if sec in c.sections():
+      for session_id in c.options(sec):
+	debugSessions[session_id] = c.get(sec, session_id)
+
+    setattr(options, 'debugSessions', debugSessions)
+
+  #print options
+  #print debugSessions
+
+  if options.daemon:
+    esh_server(options)
+  else:
+    retval = esh_client(args)
+    sys.exit(retval)
+
+def test():
+  import cmds
+  print dir(cmds)
+  CMDS = [cmd_name.split('cmd_')[1] for cmd_name in dir(cmds) if cmd_name.startswith('cmd_')]
+  print CMDS
+
+if __name__ == "__main__":
+  #test()
+  main()
