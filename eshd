@@ -40,7 +40,8 @@ if [ -e "$DEBUGSERVER_ROOT/../../eclipse/eclipse" ]; then
     #./pss -t ../targetconfs/evmbe6616_xds560v2_onechip_memconf1.ccxml -p ../../orsys-build-debug.memconf1.none/orilib_unittests/check_ORILIB_PacketSearch_Align.memconf1.none.out
     #./pss -g -c conf.py
     #./pss -c conf.py
-    esh -d -c conf.py 
+    export PYTHONPATH=$ESH_DIR:$PYTHONPATH 
+    esh -d -c $ESH_DIR/conf.py 
     #$DEBUGSERVER_ROOT/../../eclipse/eclipse -nosplash -application com.ti.ccstudio.apps.runScript -dss.rhinoArgs "$*"
   fi
 else

@@ -1,14 +1,38 @@
 import time
+import traceback
 
-def pss_b(jsproc, cmd):
+#JSCMD_IOError = -2
+JSCMD_Exception = -1
+
+class JSIOError(Exception):
+  pass
+
+def exec_jscmd(jsproc, cmd):
+  retval = 0
   print
   print '>>>>>>>>>>'
   print cmd
   print '<<<<<<<<<<'
   print
-  jsproc.stdin.write(cmd)
+  try:
+    jsproc.stdin.write(cmd)
+
+  except IOError, e:
+    print 'ESH: IOError caught executing js command'
+    traceback.print_exc()
+    #retval = JSCMD_IOError
+    raise JSIOError()
+
+  except Exception, e:
+    print 'ESH: Exception caught executing js command'
+    traceback.print_exc()
+    retval = JSCMD_Exception
+
   fetch_jsprompt(jsproc)
+  print '++++++++++++++ js command returned ++++++++++++++'
   time.sleep(0.2)
+
+  return retval
 
 def fetch_jsprompt(jsproc):
   out = ''
@@ -76,8 +100,8 @@ def code_start_debugger(tcf):
 
   return code
 
-def code_start_debug_session(session_id, session_name):
-  code = '%s = debugServer.openSession(%s)\n' % (session_id, session_name)
+def code_start_debug_session(session_id, target_name):
+  code = '%s = debugServer.openSession(%s)\n' % (session_id, target_name)
   return code
 
 def code_connect_debug_session(session_id):
@@ -123,6 +147,10 @@ def code_restart_target(session_id):
    code = '%s.target.restart()\n' % session_id
    return code
 
+def code_reset_target(session_id):
+   code = '%s.target.reset()\n' % session_id
+   return code
+
 def code_terminate_debug_session(session_id):
   #//pause("Press enter to terminate sessions...")
   #// terminate the debugger
@@ -136,8 +164,8 @@ def code_terminate_debug_session(session_id):
   return code
 
 def code_stop_ccs():
+  # Terminate CCS
   code = '''
-  // Terminate CCS
   ccsSession.terminate()
   ccsServer.stop()
   '''
@@ -148,10 +176,9 @@ def code_stop_debug_server():
   return code
 
 def code_stop_scripting_env():
+  # stop the Logging
   code = '''
-  // stop the Logging
   script.traceSetConsoleLevel(TraceLevel.INFO)
-  script.traceWrite("TEST SUCCEEDED!")
   script.traceEnd()
   '''
   return code
