@@ -21,6 +21,8 @@ retval_JSIOError = -3
 retval_BADCMD    = -2
 retval_Exception = -1
 
+ERR_ESHC_NO_DAEMON_FOUND = 99
+
 def create_js_session():
   print 'creating javascript session...'
   #print sys.argv[0]
@@ -55,6 +57,9 @@ def jsh_i(jsproc):
 #      break
 
 def esh_daemon(options):
+  #print 'options.gui=',options.gui
+  #raw_input()
+
   jsproc = create_js_session()
   print 'esh daemon is ready'
   print 'You can put me in the background now'
@@ -170,7 +175,7 @@ def esh_client(args):
     traceback.print_exc()
     print
     print 'esh client could not open pipes, is the esh daemon running?'
-    return -1
+    return ERR_ESHC_NO_DAEMON_FOUND
 
   cop.write(' '.join(args) + '\n')
   #cop.flush()
@@ -216,6 +221,9 @@ def esh_server(options):
 
     try:
       esh_daemon(options)
+    except KeyboardInterrupt:
+      print 'ESH: daemon caught a keyboard interrupt'
+      print 'eshd is quitting after removing pipes'
     except Exception, e:
       print 'ESH: daemon caught an exception, printing traceback and quitting...'
       print 'eshd is quitting after printing exception'
@@ -257,8 +265,8 @@ def main():
       help="attach and launch CCS GUI", action="store_true")
   parser.add_option("-C", "--cleanup", default=False,
       help="cleanup debug sessions", action="store_true")
-  parser.add_option("-c", "--conf", 
-      help="configuration file (take precedence over cmd line args)", action="store")
+  parser.add_option("-c", "--conf", default=None,
+      help="configuration file [default=$ESH_DIR/eshd.conf] (take precedence over cmd line args)", action="store")
   parser.add_option("-j", "--jsh", default=False,
       help="drop to interactive jsh shell", action="store_true")
   parser.add_option("-d", "--daemon", default=False,
@@ -271,6 +279,11 @@ def main():
   #print args
 
   debugSessions = {}
+
+  if options.conf == None:
+    options.conf = os.environ['ESH_DIR'] + '/eshd.conf'
+
+
   if options.conf != None:
     c = ConfigParser.ConfigParser()
     c.optionxform = str	#to make option names case sensitive
@@ -290,8 +303,11 @@ def main():
 
   #print options
   #print debugSessions
+  #print 'options.gui=',options.gui
+  #raw_input()
 
   if options.daemon:
+    print 'configuration file=%s' % options.conf
     options.init = LOW_INIT_LEVEL
     esh_server(options)
   else:

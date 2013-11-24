@@ -1,11 +1,8 @@
 #! /bin/bash
 
-# usage > dss.sh example.js (using Rhino Shell)
-#       > dss.sh -dss.debug example.js (using Rhino debugger)
-
 # DebugServer root directory.
 #DEBUGSERVER_ROOT=$(cd $(dirname "$0"); pwd)/../../DebugServer
-echo $DEBUGSERVER_ROOT
+echo DEBUGSERVER_ROOT=$DEBUGSERVER_ROOT
 
 # Java class paths
 CLASSPATH=$DEBUGSERVER_ROOT/packages/ti/dss/java/js.jar:$CLASSPATH
@@ -26,27 +23,8 @@ elif [ -d "$DEBUGSERVER_ROOT/../../eclipse/jre" ]; then
   export PATH=$DEBUGSERVER_ROOT/../../eclipse/jre/bin:$PATH
 fi
 
-# Run Tcl test script
-if [ -e "$DEBUGSERVER_ROOT/../../eclipse/eclipse" ]; then
-  # determine if we want to run in Rhino debug mode
-  if [[ $1 = "-dss.debug" ]]; then
-    # user can add additional parameters at the back as required
-    echo "here1"
-    #$DEBUGSERVER_ROOT/../../eclipse/eclipse -nosplash -application com.ti.ccstudio.apps.runScript -dss.debug -dss.rhinoArgs "${*: 2}"
-    echo "ERROR: Not implemented"
-  else
-    echo "Starting esh"
-    #python esh.py $*
-    #./pss -t ../targetconfs/evmbe6616_xds560v2_onechip_memconf1.ccxml -p ../../orsys-build-debug.memconf1.none/orilib_unittests/check_ORILIB_PacketSearch_Align.memconf1.none.out
-    #./pss -g -c conf.py
-    #./pss -c conf.py
-    export PYTHONPATH=$ESH_DIR:$PYTHONPATH 
-    esh -d -c $ESH_DIR/conf.py 
-    #$DEBUGSERVER_ROOT/../../eclipse/eclipse -nosplash -application com.ti.ccstudio.apps.runScript -dss.rhinoArgs "$*"
-  fi
-else
-  echo "here3"
-  # fall back into the legacy method
-  #java org.mozilla.javascript.tools.shell.Main $@
-  echo "ERROR: Not implemented"
-fi
+echo "Starting esh"
+export PYTHONPATH=$ESH_DIR:$PYTHONPATH 
+
+#esh -d -c $ESH_DIR/eshd.conf $@
+esh -d $@
