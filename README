@@ -1,0 +1,24 @@
+0. Setup
+
+set paths in .bashrc:
+export ESH_DIR=~/workspace/esh
+export PATH=$PATH:$ESH_DIR
+
+1. Run the esh daemon:
+
+$ eshd
+
+Wait for the process to set up a debug connection to the board, then move it to
+background if you want.
+
+2. Use esh to interact with the board:
+
+$ esh  #lists available esh commands
+
+Typical usage:
+
+$ esh evminit
+$ esh loadall
+$ esh runall
+$ esh evmshutdown
+$ esh bye
